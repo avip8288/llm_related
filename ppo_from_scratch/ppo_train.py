@@ -38,7 +38,7 @@ class Critic(nn.Module):
         super().__init__()
         self.base_model = base_model
         self.base_model.eval()
-        self.value_head = nn.Linear(base_model.config.hidden_size, 1)
+        self.value_head = nn.Linear(base_model.config.hidden_size, 1)    #只用这层
         
     def forward(self, input_ids, attention_mask, num_actions):
         
@@ -74,7 +74,7 @@ def compute_value_loss(values, old_values, returns, action_mask=None, clip_eps: 
     return ((loss * action_mask).sum(-1) / action_mask.sum(-1)).mean()
 
 
-class ExperienceBuffer:
+class ExperienceBuffer:    #经验池，记录
     def __init__(self, limit):
         self.limit = limit
         self.buffer = []
@@ -151,11 +151,11 @@ def compute_approx_kl(
 
     return log_ratio
 
-# A(t) = R(t) + gam*V(t+1) - V(t)
-# gae:A(t) = R(t) + gam*V(t+1) - V(t) + gam*lam*A(t+1)
+# A(t) = R(t) + gam*V(t+1) - V(t) 当前优势
+# gae:A(t) = R(t) + gam*V(t+1) - V(t) + gam*lam*A(t+1) 未来优势
 # 最后一个时刻的未来优势和未来收益为0：A(T+1) = 0, V(T+1) = 0,  则A(T) = R(T) - V(T), 得出A(T)
 # A(T-1) = R(T-1) + gam*V(T) - V(T-1) + gam*lam*A(T) 知道A(T)可计算A(T-1) 依次类推
-# returns(t) = A(t) + V(t) = = R(t) + gam * (V(t+1) + lam * A(t+1))
+# returns(t) = A(t) + V(t) = = R(t) + gam * (V(t+1) + lam * A(t+1)) 回报
 def get_advantages_and_returns(
         values: torch.Tensor,
         rewards: torch.Tensor,
@@ -239,7 +239,7 @@ def generate_experiences(samples_list):
     actor_model.eval()
     ref_model.eval()
     reward_model.eval()
-    critic_model.eval()
+    critic_model.eval()    #grpo 去掉价值模型
 
     experiences = []
     
@@ -268,7 +268,7 @@ def generate_experiences(samples_list):
             # 计算奖励模型的奖励值
             reward_model_inputs = reward_tokenizer(seq_texts, return_tensors="pt", padding=True)
             r = reward_model(**reward_model_inputs.to(device)).logits # 奖励模型的输出，相当于生成最后一个token的奖励（结果奖励模型）
-            # 计算kl散度
+            # 计算kl散度 ，不严格
             kl = compute_approx_kl(
                     action_log_probs,
                     ref_action_log_probs,
@@ -410,7 +410,7 @@ if __name__ == "__main__":
     rollout_batch_size = 8
     # 一次取多少条数据生成经验（生成经验需要多个模型推理，对显存要求高）
     micro_rollout_batch_size = 2
-    # 一个提示词生成多少个样本
+    # 一个提示词生成多少个样本，温度系数设置高，生成多样
     n_samples_per_prompt = 2
     # 生成的最大长度，相当于最大动作数，数值越大，模型探索的可能性越多
     max_new_tokens = 50
@@ -425,7 +425,7 @@ if __name__ == "__main__":
     # 参考模型
     ref_model = AutoModelForCausalLM.from_pretrained('/home/user/Downloads/Qwen2.5-0.5B-Instruct').to(device)
     # 奖励模型
-    reward_model = AutoModelForSequenceClassification.from_pretrained('/home/user/Downloads/reward-model-deberta-v3-large-v2').to(device)
+    reward_model = AutoModelForSequenceClassification.from_pretrained('/home/user/Downloads/reward-model-deberta-v3-large-v2').to(device)    #网上找的奖励模型
     actor_tokenizer = AutoTokenizer.from_pretrained('/home/user/Downloads/Qwen2.5-0.5B-Instruct')
     reward_tokenizer = AutoTokenizer.from_pretrained('/home/user/Downloads/reward-model-deberta-v3-large-v2')
     # 价值模型
