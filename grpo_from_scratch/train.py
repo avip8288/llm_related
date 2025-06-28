@@ -12,7 +12,7 @@ from copy import deepcopy
 from datasets import load_dataset
 from reward_func import *
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2' or '0'
 
 
 class GSM8KDataset(Dataset):
@@ -254,8 +254,8 @@ class GRPOTrainer:
                 # rewards: [num_funcs, num_generations]
                 rewards = rewards.sum(dim=0) # shape: [num_generations]
                 print(f'rewards: {rewards}')
-                mean_group_rewards = rewards.mean()
-                std_group_rewards = rewards.std()
+                mean_group_rewards = rewards.mean()    #均值
+                std_group_rewards = rewards.std()    #方差
                 
                 # GRPO的优势是句子粒度的，而非token粒度的
                 advantages = (rewards - mean_group_rewards) / (std_group_rewards + 1e-8) # shape: [num_generations]
